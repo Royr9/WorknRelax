@@ -13,8 +13,11 @@ final class AppCoordinator {
     private let scheduler: ReminderScheduler
     private let overlayController = BreakOverlayController()
     private let settingsWindowController = SettingsWindowController()
+    private var screenLockMonitor: ScreenLockMonitor?
     private var scheduledTimers: [UUID: Timer] = [:]
     private var wakeObserver: NSObjectProtocol?
+    private var snoozeOverrides: [UUID: Date] = [:]
+    private var isScreenLocked = false
 
     init(store: ReminderStore = ReminderStore(), scheduler: ReminderScheduler = ReminderScheduler()) {
         self.store = store
@@ -26,6 +29,12 @@ final class AppCoordinator {
 
     func start() {
         guard wakeObserver == nil else { return }
+        if screenLockMonitor == nil {
+            screenLockMonitor = ScreenLockMonitor(
+                onLock: { [weak self] in self?.handleScreenLock() },
+                onUnlock: { [weak self] duration in self?.handleScreenUnlock(lockedDuration: duration) }
+            )
+        }
         reconcileActiveBreak()
         scheduleReminders()
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -35,6 +44,7 @@ final class AppCoordinator {
         ) { [weak self] _ in
             Task { @MainActor in self?.reconcileAfterWake() }
         }
+        screenLockMonitor?.start()
     }
 
     func stop() {
@@ -43,6 +53,7 @@ final class AppCoordinator {
         if let wakeObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
         }
+        screenLockMonitor?.stop()
     }
 
     func saveReminder(_ reminder: Reminder) {
@@ -71,10 +82,19 @@ final class AppCoordinator {
     }
 
     func dismissBreak() {
+        if let activeBreak, let snoozeDate = snoozeTarget(for: activeBreak) {
+            snoozeOverrides[activeBreak.reminderID] = snoozeDate
+        }
         activeBreak = nil
         store.clearActiveBreak()
         overlayController.dismiss()
         scheduleReminders()
+    }
+
+    func snoozeTarget(for activeBreak: ActiveBreak) -> Date? {
+        guard let reminder = reminders.first(where: { $0.id == activeBreak.reminderID }),
+              reminder.snoozeEnabled else { return nil }
+        return Date.now.addingTimeInterval(reminder.snoozeDuration)
     }
 
     func remainingBreakTime(at date: Date = .now) -> TimeInterval {
@@ -97,19 +117,62 @@ final class AppCoordinator {
     }
 
     private func reconcileAfterWake() {
+        guard !isScreenLocked else { return }
         reconcileActiveBreak()
         scheduleReminders()
     }
 
-    private func scheduleReminders() {
+    private func handleScreenLock() {
+        isScreenLocked = true
         scheduledTimers.values.forEach { $0.invalidate() }
         scheduledTimers.removeAll()
-        nextFireDates.removeAll()
-        guard !isPaused, activeBreak == nil else { return }
+    }
+
+    private func handleScreenUnlock(lockedDuration: TimeInterval) {
+        isScreenLocked = false
+        applyLockCredit(lockedDuration: lockedDuration)
+        reconcileActiveBreak()
+        scheduleReminders(preservingFireDates: true)
+    }
+
+    private func applyLockCredit(lockedDuration: TimeInterval) {
+        let now = Date.now
+        for reminder in reminders {
+            guard case .interval = reminder.schedule,
+                  reminder.isEnabled,
+                  let creditFireDate = LockCredit.nextFireDate(
+                    unlockedAt: now,
+                    lockedDuration: lockedDuration,
+                    reminder: reminder
+                  ) else { continue }
+            if let currentFireDate = nextFireDates[reminder.id], currentFireDate > now {
+                nextFireDates[reminder.id] = max(currentFireDate, creditFireDate)
+            } else {
+                nextFireDates[reminder.id] = creditFireDate
+            }
+        }
+    }
+
+    private func scheduleReminders(preservingFireDates: Bool = false) {
+        scheduledTimers.values.forEach { $0.invalidate() }
+        scheduledTimers.removeAll()
+        if !preservingFireDates {
+            nextFireDates.removeAll()
+        }
+        guard !isPaused, activeBreak == nil, !isScreenLocked else { return }
 
         let now = Date.now
         for reminder in reminders {
-            guard let fireDate = scheduler.nextFireDate(for: reminder, after: now) else { continue }
+            let fireDate: Date?
+            if let snoozeDate = snoozeOverrides[reminder.id], snoozeDate > now {
+                fireDate = snoozeDate
+            } else if preservingFireDates, let existing = nextFireDates[reminder.id], existing > now {
+                fireDate = existing
+            } else {
+                fireDate = scheduler.nextFireDate(for: reminder, after: now)
+            }
+            snoozeOverrides.removeValue(forKey: reminder.id)
+            guard let fireDate else { continue }
             let timer = Timer(fireAt: fireDate, interval: 0, target: TimerTarget { [weak self] in
                 self?.fire(reminder)
             }, selector: #selector(TimerTarget.execute), userInfo: nil, repeats: false)
@@ -136,6 +199,13 @@ final class AppCoordinator {
         self.activeBreak = activeBreak
         store.saveActiveBreak(activeBreak)
         overlayController.present(activeBreak: activeBreak, coordinator: self)
+    }
+}
+
+private extension Reminder {
+    var intervalMinutes: Int {
+        if case let .interval(minutes) = schedule { return minutes }
+        return 0
     }
 }
 

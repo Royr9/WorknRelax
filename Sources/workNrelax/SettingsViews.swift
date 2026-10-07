@@ -75,6 +75,8 @@ struct ReminderEditorView: View {
     @State private var isEnabled: Bool
     @State private var message: String
     @State private var breakMinutes: Int
+    @State private var snoozeEnabled: Bool
+    @State private var snoozeMinutes: Int
     @State private var scheduleKind: ScheduleKind
     @State private var intervalMinutes: Int
     @State private var fixedHour: Int
@@ -93,6 +95,8 @@ struct ReminderEditorView: View {
         _isEnabled = State(initialValue: reminder?.isEnabled ?? true)
         _message = State(initialValue: reminder?.message ?? "Take a break")
         _breakMinutes = State(initialValue: Int((reminder?.breakDuration ?? 300) / 60))
+        _snoozeEnabled = State(initialValue: reminder?.snoozeEnabled ?? false)
+        _snoozeMinutes = State(initialValue: reminder?.snoozeMinutes ?? 5)
         if case let .fixedTime(hour, minute, weekdays) = reminder?.schedule {
             _scheduleKind = State(initialValue: .fixedTime)
             _fixedHour = State(initialValue: hour)
@@ -127,6 +131,10 @@ struct ReminderEditorView: View {
                     .textFieldStyle(.roundedBorder)
             }
             numberInput(label: "Break duration", value: $breakMinutes, range: 1...180, suffix: "minutes")
+            Toggle("Snooze instead of dismiss", isOn: $snoozeEnabled)
+            if snoozeEnabled {
+                numberInput(label: "Snooze duration", value: $snoozeMinutes, range: 1...60, suffix: "minutes")
+            }
             VStack(alignment: .leading, spacing: 10) {
                 Text("Schedule").fontWeight(.medium)
                 Picker("Schedule", selection: $scheduleKind) {
@@ -180,6 +188,8 @@ struct ReminderEditorView: View {
             isEnabled: isEnabled,
             message: message.trimmingCharacters(in: .whitespacesAndNewlines),
             breakDuration: TimeInterval(breakMinutes * 60),
+            snoozeEnabled: snoozeEnabled,
+            snoozeMinutes: snoozeMinutes,
             schedule: schedule
         ))
         dismiss()
