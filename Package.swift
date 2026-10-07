@@ -8,7 +8,10 @@ let package = Package(
         .executable(name: "workNrelax", targets: ["workNrelax"]),
     ],
     targets: [
-        .executableTarget(name: "workNrelax"),
+        .executableTarget(
+            name: "workNrelax",
+            exclude: ["Resources/AppIcon.icns", "Resources/AppIcon-preview.png"]
+        ),
         .testTarget(name: "workNrelaxTests", dependencies: ["workNrelax"]),
     ]
 )

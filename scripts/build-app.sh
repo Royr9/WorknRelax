@@ -16,6 +16,7 @@ mkdir -p "$CONTENTS_DIR/Resources"
 
 cp "$BIN_DIR/$APP_NAME" "$CONTENTS_DIR/MacOS/$APP_NAME"
 cp "$ROOT_DIR/Info.plist" "$CONTENTS_DIR/Info.plist"
+cp "$ROOT_DIR/Sources/$APP_NAME/Resources/AppIcon.icns" "$CONTENTS_DIR/Resources/AppIcon.icns"
 
 if [[ -n "${APP_VERSION:-}" ]]; then
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$CONTENTS_DIR/Info.plist"
