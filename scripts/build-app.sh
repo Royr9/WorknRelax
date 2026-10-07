@@ -17,6 +17,10 @@ mkdir -p "$CONTENTS_DIR/Resources"
 cp "$BIN_DIR/$APP_NAME" "$CONTENTS_DIR/MacOS/$APP_NAME"
 cp "$ROOT_DIR/Info.plist" "$CONTENTS_DIR/Info.plist"
 
+if [[ -n "${APP_VERSION:-}" ]]; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$CONTENTS_DIR/Info.plist"
+fi
+
 codesign --force --deep --sign - "$APP_DIR" 2>/dev/null || true
 
 echo "Built $APP_DIR"

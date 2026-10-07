@@ -2,7 +2,17 @@
 
 Personal native macOS break-reminder app. It lives in the menu bar, supports repeating and fixed-time reminders, and displays a full-screen break screen.
 
-## Requirements
+## Download
+
+No build tools needed — grab a ready-made app from the [Releases page](https://github.com/Royr9/WorknRelax/releases):
+
+1. Download `workNrelax.zip` from the latest release and unzip it.
+2. Drag `workNrelax.app` into `/Applications`.
+3. On first launch, macOS may show a security prompt because the app is not notarized. Right-click the app and choose **Open**, or go to System Settings → Privacy & Security → **Open Anyway**. This is only needed once.
+
+To cut a new release, run `./scripts/release.sh` (auto-increments the patch version, e.g. `v0.1.0` → `v0.1.1`). Pass `minor`, `major`, or an explicit version like `0.2.0` to change the bump. This pushes a `v<version>` tag, and GitHub Actions builds the app and publishes the release automatically.
+
+## Requirements (building from source)
 
 - macOS 14 or newer
 - Swift 6 or Xcode
