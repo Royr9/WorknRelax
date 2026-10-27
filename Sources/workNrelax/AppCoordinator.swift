@@ -143,7 +143,8 @@ final class AppCoordinator {
                   let creditFireDate = LockCredit.nextFireDate(
                     unlockedAt: now,
                     lockedDuration: lockedDuration,
-                    reminder: reminder
+                    reminder: reminder,
+                    currentFireDate: nextFireDates[reminder.id]
                   ) else { continue }
             if let currentFireDate = nextFireDates[reminder.id], currentFireDate > now {
                 nextFireDates[reminder.id] = max(currentFireDate, creditFireDate)

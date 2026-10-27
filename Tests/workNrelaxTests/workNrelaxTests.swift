@@ -100,41 +100,68 @@ struct WorkNrelaxTests {
         #expect(reminder.snoozeMinutes == 5)
     }
 
-    @Test func lockCreditFullResetWhenLockedLongEnough() {
+    @Test func lockCreditCappedAtRepeatInterval() {
+        let reminder = Reminder(message: "Move", breakDuration: 600, schedule: .interval(minutes: 45))
+        let unlockedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        // 40 min remaining, locked 180s -> bonus 900s; 2400 + 900 = 3300s exceeds the interval, so capped at 45 min
+        let currentFireDate = unlockedAt.addingTimeInterval(40 * 60)
+
+        let fireDate = LockCredit.nextFireDate(
+            unlockedAt: unlockedAt,
+            lockedDuration: 180,
+            reminder: reminder,
+            currentFireDate: currentFireDate
+        )
+
+        #expect(fireDate == unlockedAt.addingTimeInterval(45 * 60))
+    }
+
+    @Test func lockCreditExtendsExistingCountdown() {
+        let reminder = Reminder(message: "Move", breakDuration: 600, schedule: .interval(minutes: 45))
+        let unlockedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        // 5 min remaining, locked 180s -> bonus 900s; 300 + 900 = 1200s is below the interval cap
+        let currentFireDate = unlockedAt.addingTimeInterval(5 * 60)
+
+        let fireDate = LockCredit.nextFireDate(
+            unlockedAt: unlockedAt,
+            lockedDuration: 180,
+            reminder: reminder,
+            currentFireDate: currentFireDate
+        )
+
+        #expect(fireDate == unlockedAt.addingTimeInterval(20 * 60))
+    }
+
+    @Test func lockCreditBelowTwoMinutesGivesNoCredit() {
+        let reminder = Reminder(message: "Move", breakDuration: 600, schedule: .interval(minutes: 45))
+        let unlockedAt = Date(timeIntervalSince1970: 1_700_000_000)
+
+        let shortLock = LockCredit.nextFireDate(
+            unlockedAt: unlockedAt,
+            lockedDuration: 60,
+            reminder: reminder,
+            currentFireDate: unlockedAt.addingTimeInterval(40 * 60)
+        )
+        let zeroLock = LockCredit.nextFireDate(
+            unlockedAt: unlockedAt,
+            lockedDuration: 0,
+            reminder: reminder,
+            currentFireDate: unlockedAt.addingTimeInterval(40 * 60)
+        )
+
+        #expect(shortLock == nil)
+        #expect(zeroLock == nil)
+    }
+
+    @Test func lockCreditLongLockResetsToFreshInterval() {
         let reminder = Reminder(message: "Move", breakDuration: 600, schedule: .interval(minutes: 45))
         let unlockedAt = Date(timeIntervalSince1970: 1_700_000_000)
 
         let fireDate = LockCredit.nextFireDate(
             unlockedAt: unlockedAt,
             lockedDuration: 700,
-            reminder: reminder
-        )
-
-        #expect(fireDate == unlockedAt.addingTimeInterval(45 * 60))
-    }
-
-    @Test func lockCreditPartialGivesProportionalExtraTime() {
-        // break 600s, interval 2700s; locked 60s -> fraction 0.1 -> bonus 270s on top of fresh interval
-        let reminder = Reminder(message: "Move", breakDuration: 600, schedule: .interval(minutes: 45))
-        let unlockedAt = Date(timeIntervalSince1970: 1_700_000_000)
-
-        let fireDate = LockCredit.nextFireDate(
-            unlockedAt: unlockedAt,
-            lockedDuration: 60,
-            reminder: reminder
-        )
-
-        #expect(fireDate == unlockedAt.addingTimeInterval(45 * 60 + 270))
-    }
-
-    @Test func lockCreditZeroGivesPlainInterval() {
-        let reminder = Reminder(message: "Move", breakDuration: 600, schedule: .interval(minutes: 45))
-        let unlockedAt = Date(timeIntervalSince1970: 1_700_000_000)
-
-        let fireDate = LockCredit.nextFireDate(
-            unlockedAt: unlockedAt,
-            lockedDuration: 0,
-            reminder: reminder
+            reminder: reminder,
+            currentFireDate: nil
         )
 
         #expect(fireDate == unlockedAt.addingTimeInterval(45 * 60))
@@ -146,7 +173,8 @@ struct WorkNrelaxTests {
         let fireDate = LockCredit.nextFireDate(
             unlockedAt: .now,
             lockedDuration: 300,
-            reminder: reminder
+            reminder: reminder,
+            currentFireDate: nil
         )
 
         #expect(fireDate == nil)
