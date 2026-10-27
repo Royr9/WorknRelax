@@ -179,4 +179,21 @@ struct WorkNrelaxTests {
 
         #expect(fireDate == nil)
     }
+
+    @Test func updateVersionFromTagStripsPrefix() {
+        #expect(UpdateVersion.fromTag("v1.2.3") == "1.2.3")
+        #expect(UpdateVersion.fromTag("1.2.3") == "1.2.3")
+        #expect(UpdateVersion.fromTag("v0.1.0") == "0.1.0")
+        #expect(UpdateVersion.fromTag("not-a-version") == nil)
+        #expect(UpdateVersion.fromTag("v") == nil)
+    }
+
+    @Test func updateVersionIsNewerComparesNumerically() {
+        #expect(UpdateVersion.isNewer("1.2.4", than: "1.2.3"))
+        #expect(UpdateVersion.isNewer("1.10.0", than: "1.9.9"))
+        #expect(UpdateVersion.isNewer("2.0", than: "1.9.9"))
+        #expect(!UpdateVersion.isNewer("1.2.3", than: "1.2.3"))
+        #expect(!UpdateVersion.isNewer("1.2.2", than: "1.2.3"))
+        #expect(!UpdateVersion.isNewer("1.1.0", than: "1.2.0"))
+    }
 }

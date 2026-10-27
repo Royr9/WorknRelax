@@ -4,11 +4,21 @@ Personal native macOS break-reminder app. It lives in the menu bar, supports rep
 
 ## Download
 
-No build tools needed — grab a ready-made app from the [Releases page](https://github.com/Royr9/WorknRelax/releases):
+No build tools needed — install or update to the latest release with one command:
 
-1. Download `workNrelax.zip` from the latest release and unzip it.
+```bash
+curl -fsSL https://raw.githubusercontent.com/Royr9/WorknRelax/main/scripts/install-app.sh | bash
+```
+
+This downloads the latest release, replaces the existing `workNrelax.app` in `/Applications`, and relaunches it. Run the same command again any time to update — it always installs one canonical app instead of creating numbered copies.
+
+Alternatively, grab a ready-made app from the [Releases page](https://github.com/Royr9/WorknRelax/releases) manually:
+
+1. Download `workNrelax.zip` from the latest release. Unzip it in an empty folder or delete the old copy first, so macOS doesn't create duplicate `workNrelax 2.app`, `3.app`, … copies.
 2. Drag `workNrelax.app` into `/Applications`.
 3. On first launch, macOS may show a security prompt because the app is not notarized. Right-click the app and choose **Open**, or go to System Settings → Privacy & Security → **Open Anyway**. This is only needed once.
+
+The app can also update itself: open the menu-bar icon, choose **Settings**, and use **Check for Updates** at the bottom.
 
 To cut a new release, run `./scripts/release.sh` (auto-increments the patch version, e.g. `v0.1.0` → `v0.1.1`). Pass `minor`, `major`, or an explicit version like `0.2.0` to change the bump. This pushes a `v<version>` tag, and GitHub Actions builds the app and publishes the release automatically.
 

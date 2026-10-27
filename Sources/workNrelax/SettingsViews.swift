@@ -60,11 +60,59 @@ struct SettingsView: View {
         .sheet(item: $editingReminder) { reminder in
             ReminderEditorView(reminder: reminder) { coordinator.saveReminder($0) }
         }
+        .safeAreaInset(edge: .bottom) {
+            Divider()
+            UpdateSection()
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+        }
     }
 
     private func countdownText(_ duration: TimeInterval) -> String {
         let seconds = Int(duration.rounded(.down))
         return String(format: "%02d:%02d", seconds / 60, seconds % 60)
+    }
+}
+
+struct UpdateSection: View {
+    @State private var updateService = UpdateService()
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(updateService.currentVersionText)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Spacer()
+            statusView
+        }
+    }
+
+    @ViewBuilder
+    private var statusView: some View {
+        switch updateService.state {
+        case .idle:
+            Button("Check for Updates") { Task { await updateService.checkForUpdates() } }
+        case .checking:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Checking…").foregroundStyle(.secondary)
+            }
+        case .upToDate:
+            Text("You're up to date").foregroundStyle(.secondary)
+            Button("Check Again") { Task { await updateService.checkForUpdates() } }
+        case .available(let version):
+            Text("Version \(version) available").foregroundStyle(.secondary)
+            Button("Download & Install") { Task { await updateService.installUpdate() } }
+                .buttonStyle(.borderedProminent)
+        case .downloading:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Downloading update…").foregroundStyle(.secondary)
+            }
+        case .failure(let message):
+            Text(message).foregroundStyle(.red)
+            Button("Try Again") { Task { await updateService.checkForUpdates() } }
+        }
     }
 }
 
